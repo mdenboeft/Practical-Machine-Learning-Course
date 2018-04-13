@@ -1,0 +1,90 @@
+---
+title: "Prediction Assignment WriteUp"
+author: "m_denboeft 13-4-2018"
+---
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal was to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and to predict the manner in which they did the exercise (the "classe" variable in the training set). 
+In this report I  descrobe how I build my model, how I used cross validation and what I think the expected out of sample error is and why I made the choices I did. Also I used my prediction model to predict 20 different test cases. 
+
+First step: for this assignment the following packages were installed and loaded with install.packages() and library()
+```{r}
+library(lattice)
+library(ggplot2)
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(corrplot)
+library(ranger)
+library(e1071)
+```
+
+Loading the data from the website and Loading the data into R
+```{r}
+TrainingURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+TestURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+TrainingData  <- read.csv(url(TrainingURL))
+TestData <- read.csv(url(TestURL))
+dim(TrainingData)
+dim(TestData)
+```
+
+Cleaning the data by removing missing values (NA) (which are variance, mean, SD) and features that are not in the testing set. Also the first 7 features will be removed because they are not numeric of related to the time-series that are not useful. 
+```{r}
+Features <- names(TestData[,colSums(is.na(TestData)) == 0])[8:59]
+```
+
+I will only use the features that are used in testing cases.
+```{r}
+TrainingData2 <- TrainingData[,c(Features,"classe")]
+TestData2 <- TestData[,c(Features,"problem_id")]
+dim(TrainingData2)
+dim(TestData2)
+```
+
+Now I will split the data into a training dataset (70% of al cases) and testset (30% of all cases)
+Hereby I can estimate the out of sample error of the predictor
+```{r}
+set.seed(12345)
+inTrain <- createDataPartition(TrainingData2$classe, p=0.7, list=FALSE)
+Training <- TrainingData2[inTrain,]
+Testing <- TrainingData2[-inTrain,]
+dim(Training)
+dim(Testing)
+```
+
+Building the Decision Tree Model
+```{r}
+ModelFitDT <- rpart(classe ~ ., data = Training, method="class")
+rpart.plot(ModelFitDT)
+```
+
+Predicting with the Decision Tree Model
+```{r}
+set.seed(12345)
+Prediction <- predict(ModelFitDT, Testing, type = "class")
+confusionMatrix(Prediction, Testing$class)
+```
+
+Building the Random Forest Model. By using the Random Forest Model, the out of sample error should be small. The error will be estimated using the 30% test dataset
+```{r}
+set.seed(12345)
+ModelFitRF <- randomForest(classe ~ ., data = Training, ntree = 1000)
+ModelFitRF
+```
+
+Decision Tree Predicting on the original Testing Data
+```{r}
+predictionDT <- predict(ModelFitDT, TestData2, type = "class")
+predictionDT
+```
+
+Random Forest Prediction on the original Testing Data
+```{r}
+predictionRF <- predict(ModelFitRF, TestData2, type = "class")
+predictionRF
+```
+
+Conclusion: The results show that the Random Forest Model is very accurate. When I tested this model on the 20 test cases, they were also all correct. 
+
